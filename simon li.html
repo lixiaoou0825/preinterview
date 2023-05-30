@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Location Search</title>
+  <style>
+    #map {
+      height: 400px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    
+    #location-table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    #location-table th,
+    #location-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    
+    #pagination {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Location Search</h1>
+  
+  <button id="get-location">Get Current Location</button>
+  <input type="text" id="location-input" placeholder="Search for a location">
+  
+  <div id="map"></div>
+  
+  <table id="location-table">
+    <thead>
+      <tr>
+        <th>Select</th>
+        <th>Location</th>
+      </tr>
+    </thead>
+    <tbody id="location-records">
+      <!-- Location records will be dynamically added here -->
+    </tbody>
+  </table>
+  
+  <div id="pagination">
+    <button id="prev-page">Previous</button>
+    <span id="page-number">1</span>
+    <button id="next-page">Next</button>
+  </div>
+  
+  <button id="delete-selected">Delete Selected Records</button>
+  
+  <script>
+    // Global variables
+    let map;
+    let markers = [];
+    let currentPage = 1;
+    const recordsPerPage = 10;
+    
+    // Function to initialize the map
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 0, lng: 0 },
+        zoom: 8
+      });
+    }
+    
+    // Function to get user's current location
+    function getCurrentLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const { latitude, longitude } = position.coords;
+          const location = new google.maps.LatLng(latitude, longitude);
+          map.setCenter(location);
+          map.setZoom(14);
+          createMarker(location);
+        }, error => {
+          console.error(error);
+        });
+      } else {
+        console.error('Geolocation is not supported by this browser.');
+      }
+    }
+    
+    // Function to search for a location
+    function searchLocation() {
+      const searchInput = document.getElementById('location-input');
+      const searchQuery = searchInput.value.trim();
+      
+      // Use searchQuery to fetch location data (e.g., using an API)
+      // For this example, we'll simply display a fake result
+      
+      const fakeResult = {
+        location: 'Fake Location',
+        latitude: 40.7128,
+        longitude: -74.0060
+      };
+      
+      // Clear previous markers
+      clearMarkers();
+      
+      // Create marker for the searched location
+      const location = new google.maps.LatLng(fakeResult.latitude, fakeResult.longitude);
+      createMarker(location);
+      
+      // Add location record to the table
+      const locationRecords = document.getElementById('location-records');
+      const newRow = locationRecords.insertRow();
+      newRow.innerHTML = `
+        <td><input type="checkbox" class="record-checkbox"></td>
+        <td>${fakeResult.location}</td>
+      `;
+    }
+    
+    // Function to create a marker on the map
+    function createMarker(location) {
+      const marker = new google.maps.Marker({
+        position: location,
+        map: map
+      });
+      markers.push(marker);
+    }
+    
+    // Function to clear all markers from the map
+    function clearMarkers() {
+      markers.forEach(marker => marker.setMap(null));
+      markers = [];
+    }
+    
+    // Function to delete selected records and markers
+    function deleteSelectedRecords() {
+      const checkboxes = document.getElementsByClassName('record-checkbox');
+      const selectedRecords = [];
+      
+      // Find selected records
+      Array.from(checkboxes).forEach((checkbox, index) => {
+        if (checkbox.checked) {
+          selectedRecords.push(index);
+        }
+      });
+      
+      // Remove selected records from table
+      const locationRecords = document.getElementById('location-records');
+      for (let i = selectedRecords.length - 1; i >= 0; i--) {
+        locationRecords.deleteRow(selectedRecords[i]);
+      }
+      
+      // Remove corresponding markers
+      selectedRecords.forEach(index => {
+        markers[index].setMap(null);
+        markers.splice(index, 1);
+      });
+    }
+    
+    // Function to update the pagination controls
+    function updatePaginationControls() {
+      const locationRecords = document.getElementById('location-records');
+      const totalPages = Math.ceil(locationRecords.rows.length / recordsPerPage);
+      const pageNumber = document.getElementById('page-number');
+      
+      if (currentPage < 1) {
+        currentPage = 1;
+      } else if (currentPage > totalPages) {
+        currentPage = totalPages;
+      }
+      
+      pageNumber.textContent = currentPage;
+      
+      const prevPageButton = document.getElementById('prev-page');
+      const nextPageButton = document.getElementById('next-page');
+      
+      prevPageButton.disabled = (currentPage === 1);
+      nextPageButton.disabled = (currentPage === totalPages);
+      
+      // Show relevant records based on the current page
+      for (let i = 0; i < locationRecords.rows.length; i++) {
+        locationRecords.rows[i].style.display = (i >= (currentPage - 1) * recordsPerPage && i < currentPage * recordsPerPage) ? '' : 'none';
+      }
+    }
+    
+    // Event listeners
+    document.getElementById('get-location').addEventListener('click', getCurrentLocation);
+    document.getElementById('location-input').addEventListener('keyup', event => {
+      if (event.keyCode === 13) {
+        searchLocation();
+      }
+    });
+    document.getElementById('prev-page').addEventListener('click', () => {
+      currentPage--;
+      updatePaginationControls();
+    });
+    document.getElementById('next-page').addEventListener('click', () => {
+      currentPage++;
+      updatePaginationControls();
+    });
+    document.getElementById('delete-selected').addEventListener('click', deleteSelectedRecords);
+    
+    // Initialize the map
+    initMap();
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0lKHlZZbAoxXpAWBoqxfyzLMkmDnlycg&callback=initMap" async defer></script>
+</body>
+</html>

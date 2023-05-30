@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Location Tracker</title>
+  <style>
+    #map {
+      height: 400px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .delete-btn {
+      margin-bottom: 10px;
+    }
+
+    .pagination {
+      margin-top: 10px;
+    }
+    
+    .selected-row {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <h1>Location Tracker</h1>
+
+  <div id="map"></div>
+
+  <button id="get-location-btn">Get Current Location</button>
+
+  <div>
+    <input type="text" id="location-input" placeholder="Search location..." />
+    <button id="search-btn">Search</button>
+  </div>
+
+  <h2>Searched Places</h2>
+
+  <table id="places-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Location</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="pagination" class="pagination"></div>
+
+  <script>
+    let map;
+    let markers = [];
+    let selectedRows = [];
+
+    // Initialize the map
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 0, lng: 0 },
+        zoom: 2
+      });
+    }
+
+    // Add a marker to the map
+    function addMarker(location) {
+      const marker = new google.maps.Marker({
+        position: location,
+        map: map
+      });
+      markers.push(marker);
+    }
+
+    // Remove all markers from the map
+    function removeMarkers() {
+      markers.forEach(marker => marker.setMap(null));
+      markers = [];
+    }
+
+    // Update the table with searched places
+    function updateTable(places) {
+      const tableBody = document.querySelector('#places-table tbody');
+      tableBody.innerHTML = '';
+
+      places.forEach(place => {
+        const row = document.createElement('tr');
+        const checkboxCell = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkboxCell.appendChild(checkbox);
+        row.appendChild(checkboxCell);
+
+        const locationCell = document.createElement('td');
+        locationCell.textContent = place;
+        row.appendChild(locationCell);
+
+        tableBody.appendChild(row);
+      });
+    }
+
+    // Update the pagination links
+    function updatePagination(currentPage, totalPages) {
+      const paginationDiv = document.getElementById('pagination');
+      paginationDiv.innerHTML = '';
+
+      for (let i = 1; i <= totalPages; i++) {
+        const link = document.createElement('a');
+        link.href = '#';
+        link.textContent = i;
+        link.addEventListener('click', () => {
+          showPage(i);
+        });
+
+        if (i === currentPage) {
+          link.classList.add('selected');
+        }
+
+        paginationDiv.appendChild(link);
+      }
+    }
+
+    // Show the specified page in the table
+    function showPage(pageNumber) {
+      const table = document.getElementById('places-table');
+      const rows = table.getElementsByTagName('tr');
+      const startIndex = (pageNumber - 1) * 10;
+      const endIndex = startIndex + 10;
+
+      for (let i = 0; i < rows.length; i++) {
+        if (i >= startIndex && i < endIndex) {
+          rows[i].style.display = '';
+        } else {
+          rows[i].style.display = 'none';
+        }
+      }
+    }
+
+    // Delete selected rows and markers
+    function deleteSelectedRows() {
+      const table = document.getElementById('places-table');
+      const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]:checked');
+
+      checkboxes.forEach(checkbox => {
+        const row = checkbox.parentNode.parentNode;
+        const index = Array.from(table.rows).indexOf(row);
+
+        row.parentNode.removeChild(row);
+        markers[index].setMap(null);
+        markers.splice(index, 1);
+      });
+
+      selectedRows = [];
+    }
+
+    // Get the time zone and local time of the specified location
+    function getTimeInfo(location) {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === google.maps.GeocoderStatus.OK) {
+          const timeZoneId = results[0].geometry.location.getTimeZone();
+          const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          const time = new Date().toLocaleTimeString('en-US', { timeZone: timeZoneId });
+          console.log(`Time Zone: ${timeZoneId}`);
+          console.log(`Local Time: ${time}`);
+        } else {
+          console.error('Geocode was not successful for the following reason:', status);
+        }
+      });
+    }
+
+    // Get the current location from the browser
+    function getCurrentLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const currentLocation = { lat, lng };
+
+          map.setCenter(currentLocation);
+          addMarker(currentLocation);
+          getTimeInfo('Current Location');
+        }, error => {
+          console.error('Error getting current location:', error);
+        });
+      } else {
+        console.error('Geolocation is not supported by this browser.');
+      }
+    }
+
+    // Handle search button click and enter key press
+    function handleSearch() {
+      const locationInput = document.getElementById('location-input');
+      const location = locationInput.value;
+
+      if (location.trim() === '') {
+        return;
+      }
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === google.maps.GeocoderStatus.OK) {
+          const searchedLocation = results[0].geometry.location;
+
+          map.setCenter(searchedLocation);
+          addMarker(searchedLocation);
+          getTimeInfo(location);
+          locationInput.value = '';
+        } else {
+          console.error('Geocode was not successful for the following reason:', status);
+        }
+      });
+    }
+
+    // Initialize the page
+    function initializePage() {
+      document.getElementById('get-location-btn').addEventListener('click', getCurrentLocation);
+      document.getElementById('search-btn').addEventListener('click', handleSearch);
+      document.getElementById('location-input').addEventListener('keyup', event => {
+        if (event.key === 'Enter') {
+          handleSearch();
+        }
+      });
+      document.querySelector('#places-table thead input[type="checkbox"]').addEventListener('change', event => {
+        const checkboxes = document.querySelectorAll('#places-table tbody input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+          checkbox.checked = event.target.checked;
+        });
+
+        if (event.target.checked) {
+          const rows = document.querySelectorAll('#places-table tbody tr');
+          rows.forEach(row => {
+            row.classList.add('selected-row');
+          });
+          selectedRows = Array.from(rows);
+        } else {
+          const rows = document.querySelectorAll('#places-table tbody tr');
+          rows.forEach(row => {
+            row.classList.remove('selected-row');
+          });
+          selectedRows = [];
+        }
+      });
+      document.getElementById('delete-btn').addEventListener('click', deleteSelectedRows);
+
+      initMap();
+      updateTable(['Searched Place 1', 'Searched Place 2', 'Searched Place 3', 'Searched Place 4', 'Searched Place 5', 'Searched Place 6', 'Searched Place 7', 'Searched Place 8', 'Searched Place 9', 'Searched Place 10']);
+      updatePagination(1, 1);
+      showPage(1);
+    }
+
+    // Load the Google Maps API asynchronously
+    function loadGoogleMapsAPI() {
+      const script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyD0lKHlZZbAoxXpAWBoqxfyzLMkmDnlycg&callback=initializePage';
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    loadGoogleMapsAPI();
+  </script>
+</body>
+</html>
